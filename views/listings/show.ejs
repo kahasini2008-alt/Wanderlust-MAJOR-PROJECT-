@@ -10,7 +10,7 @@
   <img src="<%= listing.image.url %>" class="card-img-top show-img" alt="listing_img">
   <div class="card-body">
     <!-- <h5 class="card-title"><%= listing.title %></h5> -->
-     <p class="card-text">Owned by  <i><%= listing.owner ? listing.owner.username : "Wanderlust" %></i></p>
+     <p class="card-text"><% if (listing.owner) { %>Owned by <i><%= listing.owner.username %></i><% } else { %>Owner not assigned<% } %></p>
     <p class="card-text"><%= listing.description %></p>
     <p class="card-text">&#8377;<%= listing.price.toLocaleString("en-IN") %></p>
     <p class="card-text"><%= listing.location %><br><%= listing.country %></p>
