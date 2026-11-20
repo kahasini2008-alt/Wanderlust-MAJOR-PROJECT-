@@ -4,6 +4,7 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const initData = require("./data.js");
 const Listing = require("../models/listing.js");
+const User = require("../models/user.js");
 
 async function seedAtlas() {
     try {
@@ -19,8 +20,16 @@ async function seedAtlas() {
         await mongoose.connect(dbUrl);
         console.log("Connected to Atlas!");
 
+        const owner = await User.findOne({ username: "sigma-student" });
+        if (!owner) {
+            throw new Error(
+                `User "sigma-student" was not found in the "${mongoose.connection.name}" database.`
+            );
+        }
+
         let inserted = 0;
         let categorized = 0;
+        let assignedOwners = 0;
         let skipped = 0;
 
         for (const item of initData.data) {
@@ -31,7 +40,7 @@ async function seedAtlas() {
 
             if (existing) {
                 if (!existing.category && item.category) {
-                    await Listing.updateOne(
+                    const result = await Listing.updateOne(
                         {
                             _id: existing._id,
                             $or: [
@@ -42,8 +51,30 @@ async function seedAtlas() {
                         },
                         { $set: { category: item.category } }
                     );
-                    console.log(`Categorized existing listing: ${item.title}`);
-                    categorized++;
+                    if (result.modifiedCount) {
+                        console.log(`Categorized existing listing: ${item.title}`);
+                        categorized++;
+                    }
+                }
+
+                if (!existing.owner) {
+                    const result = await Listing.updateOne(
+                        {
+                            _id: existing._id,
+                            $or: [
+                                { owner: { $exists: false } },
+                                { owner: null }
+                            ]
+                        },
+                        { $set: { owner: owner._id } }
+                    );
+                    if (result.modifiedCount) {
+                        console.log(`Assigned owner to existing listing: ${item.title}`);
+                        assignedOwners++;
+                    }
+                }
+
+                if (!existing.category || !existing.owner) {
                     continue;
                 }
 
@@ -71,6 +102,7 @@ async function seedAtlas() {
 
             await Listing.create({
                 ...item,
+                owner: owner._id,
                 geometry: {
                     type: "Point",
                     coordinates
@@ -84,6 +116,7 @@ async function seedAtlas() {
         console.log("\nSeeding finished!");
         console.log(`Inserted: ${inserted}`);
         console.log(`Categorized: ${categorized}`);
+        console.log(`Assigned owners: ${assignedOwners}`);
         console.log(`Skipped: ${skipped}`);
     } catch (err) {
         console.error("Seeding failed:", err.message);
